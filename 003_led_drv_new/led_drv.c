@@ -17,6 +17,7 @@
 #include <linux/io.h>
 
 
+#define LED_NUMBER      1
 
 #define DEVICE_NAME    "100ask_led"
 #define CLASS_NAME     "100ask_led_class"
@@ -42,6 +43,8 @@ static ssize_t led_drv_read(struct file *file, char __user *buf, size_t size, lo
  */
 
 static int major = 0;
+static int minor = 0;
+
 static volatile unsigned int *CCM_CCGR1 = NULL;
 static volatile unsigned int *GPIO5_GDIR = NULL;
 static volatile unsigned int *GPIO5_DR = NULL;
@@ -59,6 +62,10 @@ static struct file_operations led_drv = {
     .release = led_drv_close,
 };
 
+static struct cdev led_cdev = {
+    .owner   = THIS_MODULE,
+};
+
 static struct class *led_class = NULL;
 
 /*
@@ -73,6 +80,9 @@ static ssize_t led_drv_write(struct file *file, const char __user *buf, size_t s
 {
     char status = 0;
     int len = 0;
+	struct inode *inode = file_inode(file);
+	int which = iminor(inode);
+
 
     /* 根据次设备号和status控制LED */
 
@@ -84,6 +94,8 @@ static ssize_t led_drv_write(struct file *file, const char __user *buf, size_t s
 
 static int led_drv_open(struct inode *node, struct file *file)
 {
+    int which = iminor(node);
+
     if (!CCM_CCGR1)
     {
         /* 将物理地址映射为虚拟地址 */
@@ -121,6 +133,8 @@ static int led_drv_open(struct inode *node, struct file *file)
 
 static int led_drv_close(struct inode *node, struct file *file)
 {
+    int which = iminor(node);
+
     return 0;
 }
 
@@ -130,18 +144,56 @@ static int led_drv_close(struct inode *node, struct file *file)
  */
 static int __init led_drv_init(void)
 {
+    int ret = 0;
+    int i = 0;
+    
     printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
 
-    /* 注册设备 */
-    major = register_chrdev(0, DEVICE_NAME, &led_drv);
+    /* 注册/申请设备号 */
+    if (major)
+    {
+        dev_t dev = MKDEV(major, 0);
+        ret = register_chrdev_region(dev, LED_NUMBER, DEVICE_NAME);
+        if (ret < 0)
+        {
+            printk("ERR:%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
+            return -1;
+        }
+    }
+    else
+    {
+        dev_t dev = 0;
+        ret = alloc_chrdev_region(&dev, 0, LED_NUMBER, DEVICE_NAME);
+        if (ret < 0)
+        {
+            printk("ERR:%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
+            return -1;
+        }
+        major = MAJOR(dev);
+        minor = MINOR(dev);
+    }
+
+    /* 初始化cdev结构体 */
+    cdev_init(&led_cdev, &led_drv);
+
+    /* 将cdev结构体添加进内核 */
+    cdev_add(&led_cdev, MKDEV(major, minor), LED_NUMBER);
+
+    /* 创建类 */
     led_class = class_create(THIS_MODULE, CLASS_NAME);
     if (IS_ERR(led_class))
     {
         printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
-        unregister_chrdev(major, DEVICE_NAME);
+        cdev_del(&led_cdev);
+        unregister_chrdev_region(MKDEV(major, minor), LED_NUMBER);
         return -1;
     }
-    device_create(led_class, NULL, MKDEV(major, 0), NULL, DEVICE_NAME);
+
+    /* 创建设备节点 */
+    for (i = 0; i < LED_NUMBER; i++)
+    {
+        device_create(led_class, NULL, MKDEV(major, i), NULL, DEVICE_NAME"%d", i);
+    }
 
     return 0;
 }
@@ -151,6 +203,8 @@ static int __init led_drv_init(void)
  */
 static void __exit led_drv_exit(void)
 {
+    int i = 0;
+
     printk("%s %s line %d\n", __FILE__, __FUNCTION__, __LINE__);
 
     /* 取消映射 */
@@ -161,13 +215,19 @@ static void __exit led_drv_exit(void)
     iounmap(GPIO5_DR);
 
     /* 注销设备 */
-    device_destroy(led_class, MKDEV(major, 0));
+    for (i = 0; i < LED_NUMBER; i++)
+    {
+        device_destroy(led_class, MKDEV(major, i));
+    }
+    cdev_del(&led_cdev);
     class_destroy(led_class);
-    unregister_chrdev(major, DEVICE_NAME);
+    unregister_chrdev_region(MKDEV(major, minor), LED_NUMBER);
 }
 
 
 module_init(led_drv_init);
 module_exit(led_drv_exit);
 MODULE_LICENSE("GPL");
+MODULE_AUTHOR("qihuixin");
+
 
