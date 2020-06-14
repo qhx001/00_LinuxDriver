@@ -89,6 +89,7 @@ static int led_probe(struct platform_device *dev)
             break;
         }
         gpio_pin[resource_index] = p_resource->start;
+        printk("gpio_pin = %d\n", gpio_pin[resource_index]);
         resource_index++;
     }
     resource_total = resource_index;
@@ -159,7 +160,6 @@ int led_open(struct inode *node, struct file *file)
 #if 0
     int which = iminor(node);
 #endif
-
     /* 将物理地址映射为虚拟地址 */
     CCM_CCGR1 = ioremap(REG_CCM_CCGR1, 4);
     GPIO5_GDIR = ioremap(REG_GPIO5_GDIR, 4);
