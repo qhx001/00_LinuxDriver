@@ -1,0 +1,1 @@
+cmd_/home/qhx/Work/100ask_imx6ull/Driver/006_ledctrl_devicetree/driver.ko := arm-linux-gnueabihf-ld -EL -r  -T ./scripts/module-common.lds --build-id  -o /home/qhx/Work/100ask_imx6ull/Driver/006_ledctrl_devicetree/driver.ko /home/qhx/Work/100ask_imx6ull/Driver/006_ledctrl_devicetree/driver.o /home/qhx/Work/100ask_imx6ull/Driver/006_ledctrl_devicetree/driver.mod.o ;  true

@@ -1,0 +1,3 @@
+/home/qhx/Work/100ask_imx6ull/Driver/006_ledctrl_devicetree/driver.ko
+/home/qhx/Work/100ask_imx6ull/Driver/006_ledctrl_devicetree/driver.o
+

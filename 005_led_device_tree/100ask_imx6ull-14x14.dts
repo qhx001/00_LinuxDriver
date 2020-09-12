@@ -20,11 +20,6 @@
 		stdout-path = &uart1;
 	};
 
-	qhx_led@0 {
-		compatible = "qhx_imx6ull, user_led";
-		pin        = <GROUP_PIN(5, 3)>;
-	};
-
 	memory {
 		reg = <0x80000000 0x20000000>;
 	};
